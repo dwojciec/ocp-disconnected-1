@@ -1,4 +1,4 @@
-# OpenShift Offline Install
+# Disconnected OCP Install Helper
 
 ## Overview
 This project follows the [Red Hat documentation](https://docs.openshift.com/container-platform/3.5/install_config/install/disconnected_install.html) for creating a disconnected controller/repository to use in the installation of the OpenShift Container Platform.

@@ -51,6 +51,7 @@
     name:
       - docker
       - git
+      - atomic-openshift-utils
 
 - name: "Enable and start Docker service"
   service:
