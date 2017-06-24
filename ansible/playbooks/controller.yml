@@ -1,0 +1,7 @@
+---
+# start the controller playbook
+- hosts: localhost
+  roles:
+    - "../roles/controller"
+
+

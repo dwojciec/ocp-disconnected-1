@@ -1,0 +1,13 @@
+[Unit]
+Description=docker-registry container
+Requires=docker.service
+After=docker.service
+
+[Service]
+ExecStartPre=-/usr/bin/docker rm -f registry
+ExecStart=/usr/bin/docker run --name registry -v /tmp/docker-registry/data:/var/lib/registry:Z -p 5000:5000 registry
+ExecStop=/usr/bin/docker stop -t 2 registry
+ExecStopPost=-/usr/bin/docker rm -f registry
+
+[Install]
+WantedBy=default.target

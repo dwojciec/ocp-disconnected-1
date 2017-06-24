@@ -1,0 +1,155 @@
+---
+# do the steps listed for a disconnected install
+# and build an ISO that contains a RHEL image that
+# can control/serve a disconnected OCP right out
+# of the box
+# https://docs.openshift.com/container-platform/3.5/install_config/install/disconnected_install.html
+
+# build procedure only targets localhost
+- hosts: localhost
+  tasks:
+  - name: "Set environment variable to 'development' if not defined"
+    set_fact:
+      environment: development
+    when: not environment is defined
+
+  - name: "Load artifact description from configuration file"
+    include_vars:
+      file: "{{ item }}"
+      name: "config"
+    with_first_found:
+      - "{{ playbook_dir }}/conf.{{ environment }}.yml"
+      - "{{ playbook_dir }}/conf.yml"
+      - "{{ playbook_dir }}/conf.default.yml"
+
+  - name: "Set shorthand variables for the rest of the installation"
+    set_fact:
+      build_dir: "{{ playbook_dir }}/build"
+      content_dir: "{{ playbook_dir }}/build/content/ocp-disconnected-{{ config.versions.ocp }}"
+      inplace: "{% if not inplace is defined %}false{% else %}{{ inplace }}{% endif %}"
+
+  - name: "Ensure system is updated"
+    yum:
+      name: '*'
+      state: latest
+
+  - name: "Ensure specified packages are installed on localhost"
+    yum:
+      name: "{{ config.system.rpms }}"
+      state: present
+
+  - name: "Download pip installation script"
+    get_url:
+      url: https://bootstrap.pypa.io/get-pip.py
+      dest: /tmp/get-pip.py
+    register: get_pip_url
+
+  - name: "See if pip exists"
+    stat:
+      path: "/usr/bin/pip"
+    register: pip_file
+
+  - name: "Execute pip installation"
+    command: "/usr/bin/python /tmp/get-pip.py"
+    when: get_pip_url.changed or not pip_file.stat.exists
+
+  - name: "Install pip packages required for docker integration"
+    pip:
+      name:
+        - docker-py        
+
+  - name: "Ensure that Docker is running (so we can issue commands)"
+    service:
+      state: started
+      name: docker
+
+  - name: "Ensure we hae a place to export docker tar images"
+    file:
+      path: "{{ content_dir }}/containers"
+      state: directory
+
+  - name: "Create build repository folders for target repos"
+    file:
+      path: "{{ content_dir }}/repos/{{ item }}"
+      state: directory
+    with_items: "{{ config.rpm_repositories }}"
+
+  - name: "Make a copy of /etc/yum.conf and make changes"
+    copy:
+      src: "/etc/yum.conf"
+      dest: "{{ build_dir }}/yum.conf"
+
+  - name: "Make sure downloader excludes packages that are not required"
+    lineinfile:
+      state: present
+      dest: "{{ build_dir }}/yum.conf"
+      regexp: "^exclude=.*"
+      line: "exclude=*.i686, kde*, gnome*, texlive*, xorg*, virt-p2v*, firefox*, gimp*, java-1.6*, postgres*"
+
+  - name: "Syncronize target repositories (this may take some time)"
+    command: "reposync --gpgcheck -lm --repoid={{ item }} --download_path={{ content_dir }}/repos/ --arch=x86_64 -n -d -c {{ build_dir }}/yum.conf"
+    with_items: "{{ config.rpm_repositories }}"
+
+  - name: "Make repository out of syncronized RPMs"
+    command: "createrepo -v {{ content_dir }}/repos/{{ item }} -o {{ content_dir }}/repos/{{ item }}"
+    with_items: "{{ config.rpm_repositories }}"
+
+  - name: "Pull Docker images into local Docker instance (this will take more time)"
+    docker_image:
+      state: present
+      repository: "{{ item.0.url }}"
+      name: "{% if ':' in item.1  %}{{ item.1.split(':')[0] }}{% else %}{{ item.1 }}{% endif %}"
+      tag: "{% if ':' in item.1 %}{{ item.1.split(':')[1] }}{% else %}{{ item.0.tag }}{% endif %}"
+    with_subelements:
+      - "{{ config.registries }}"
+      - images
+
+  - name: "Export images in grouped tars (saves space with overlapping layers)"
+    command: "/usr/bin/docker save -o {{ content_dir }}/containers/{{ item.name }}.tar {{ item.url }}/{{ item.images | join(' ' + item.url + '/') }}"
+    with_items: "{{ config.registries }}"
+    when: item.images | length > 0 and not inplace
+
+  - name: "Delete content from build directory for a clean distributable"
+    file:
+      state: absent
+      name: "{{ item }}"
+    when: not inplace
+    with_items:
+      - "{{ content_dir }}/conf.yml"
+      - "{{ content_dir }}/playbooks"
+      - "{{ content_dir }}/roles"
+      - "{{ content_dir }}/bootstrap.sh"
+      - "{{ content_dir }}/hosts"
+      - "{{ build_dir }}/ocp-disconnected-{{ config.versions.ocp }}.tar.gz"
+
+  - name: "Copy ansible content into content dir"
+    synchronize:
+      src: "{{ playbook_dir }}/ansible/"
+      dest: "{{ content_dir }}/"
+      recursive: yes
+    when: not inplace
+
+  - name: "Copy bootstrap template into content dir"
+    template:
+      src: "{{ playbook_dir }}/templates/bootstrap.sh.j2"
+      dest: "{{ content_dir }}/bootstrap.sh"
+    when: not inplace
+
+  - name: "Copy localhost hosts file"
+    copy:
+      src: "{{ playbook_dir }}/hosts"    
+      dest: "{{ content_dir }}/hosts"
+    when: not inplace
+
+  - name: "Write working configuration to file"
+    copy:
+      content: "---\n{{ config | to_nice_yaml(indent=2) }}"
+      dest: "{{ content_dir }}/conf.yml"
+    when: not inplace
+
+  - name: "Archive build contents as release artifact"
+    command: "/usr/bin/tar cvf {{ build_dir }}/ocp-disconnected-{{ config.versions.ocp }}.tar.gz ocp-disconnected-{{ config.versions.ocp }}"
+    args:
+      chdir: "{{ build_dir }}/content"
+      warn: false # ansible >= 2.3 has an 'archive' module, fix then
+    when: not inplace

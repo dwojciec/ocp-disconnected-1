@@ -1,0 +1,13 @@
+---
+- hosts: localhost
+  tasks:
+    # special variable that controls execution during in-place install
+    - name: "Let install know that it is 'in place'"
+      set_fact:
+        inplace: true
+
+# perform build procedures
+- include: "{{ playbook_dir }}/build.yml"
+
+# start ansible treating the localhost as the controller box
+- include: "{{ playbook_dir }}/ansible/playbooks/controller.yml"

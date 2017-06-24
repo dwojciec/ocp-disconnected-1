@@ -1,0 +1,13 @@
+[Unit]
+Description=nginx container
+Requires=docker.service
+After=docker.service
+
+[Service]
+ExecStartPre=-/usr/bin/docker rm -f nginx
+ExecStart=/usr/bin/docker run --name nginx -p 80:80 -v {{ content_dir }}/repos:/usr/share/nginx/html:z nginx
+ExecStop=/usr/bin/docker stop -t 2 ngin
+xExecStopPost=-/usr/bin/docker rm -f nginx
+
+[Install]
+WantedBy=default.target

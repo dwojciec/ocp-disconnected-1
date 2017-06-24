@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# get directory script is in
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PKG_DIR="${DIR}/repos"
+
+cat <<EOF > /etc/yum.repos.d/temp-repos.repo
+[temp-rhel-7-server-rpms]
+name=temp-rhel-7-server-rpms
+baseurl=file://${PKG_DIR}/rhel-7-server-rpms
+enabled=1
+gpgcheck=0
+
+[temp-rhel-7-server-extras-rpms]
+name=temp-rhel-7-server-extras-rpms
+baseurl=file://${PKG_DIR}/rhel-7-server-extras-rpms
+enabled=1
+gpgcheck=0
+
+[temp-rhel-7-server-ose-{{ config.versions.ocp }}-rpms]
+name=temp-rhel-7-server-ose-{{ config.versions.ocp }}-rpms
+baseurl=file://${PKG_DIR}/rhel-7-server-ose-{{ config.versions.ocp }}-rpms
+enabled=1
+gpgcheck=0
+EOF
+
+# disable built-in repositories
+subscription-manager repos --disable=\* &2>/dev/null
+
+# install the ansible package directly with yum
+yum install -y ansible
+
+# delete the temp repository file
+rm -rf /etc/yum.repos.d/temp-repos.repo

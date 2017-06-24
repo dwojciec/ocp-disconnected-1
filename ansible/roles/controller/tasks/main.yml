@@ -1,0 +1,140 @@
+---
+- name: "Set environment variable to 'development' if not defined"
+  set_fact:
+    environment: development
+  when: not environment is defined
+
+- name: "Determine if installation is in-place or not"
+  set_fact:
+    inplace: "{% if not inplace is defined %}false{% else %}{{ inplace }}{% endif %}"
+
+- name: "Load artifact description from configuration file"
+  include_vars:
+    file: "{{ item }}"
+    name: "config"
+  with_first_found: 
+    # this weird structure is due to the fact that it ignores a "when" clause and tries to load anyway so we have to 
+    # search everywhere that would work for both a normal install and an inplace install
+    - "{{ playbook_dir }}/conf.{{ environment }}.yml"
+    - "{{ playbook_dir }}/../conf.{{ environment }}.yml"
+    - "{{ playbook_dir }}/../../conf.{{ environment }}.yml"
+    - "{{ playbook_dir }}/conf.yml"
+    - "{{ playbook_dir }}/../conf.yml"
+    - "{{ playbook_dir }}/../../conf.yml"
+    - "{{ playbook_dir }}/conf.default.yml"
+    - "{{ playbook_dir }}/../conf.default.yml"
+    - "{{ playbook_dir }}/../../conf.default.yml"
+
+- name: "Determine content location"
+  set_fact:
+    content_dir: "{{ playbook_dir }}/.."
+  when: not content_dir is defined
+
+- name: "Disable ALL existing Red Hat repositories (controller is considered offline at this point)"
+  command: "subscription-manager repos --disable=rhel*"
+  failed_when: false
+
+- name: "Use local sources as RPM repos so that installation can be done"
+  template:
+    src: local-repos.repo.j2
+    dest: /etc/yum.repos.d/local-repos.repo
+    mode: 0644
+
+- name: "Ensure system is updated"
+  yum:
+    name: '*'
+    state: latest  
+  when: not inplace
+
+- name: "Install of supporting packages (from attached local repos)"
+  yum:
+    name:
+      - docker
+      - git
+
+- name: "Enable and start Docker service"
+  service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: "If not in place, load docker images into local repo (some will be launched locally)"
+  command: "/usr/bin/docker load -i {{ content_dir }}/containers/{{ item.name }}.tar"
+  with_items: "{{ config.registries }}"
+  when: item.images | length > 0 and not inplace
+
+- name: "Copy template for nginx service"
+  template:
+    src: nginx.service.j2
+    dest: /etc/systemd/system/nginx.service
+  register: nginx_service
+  notify:
+    - restart nginx
+
+- name: "Make directory for docker registry data (permanent storage for container)"
+  file:
+    path: /tmp/docker-registry/data
+    state: directory
+
+- name: "Copy template for docker registry service"
+  template:
+    src: docker-registry.service.j2
+    dest: /etc/systemd/system/docker-registry.service
+  register: docker_registry_service
+
+- name: "Systemctl daemon-reload on unit file changes"
+  command: "systemctl daemon-reload"
+  when: nginx_service.changed or docker_registry_service.changed
+
+- name: "Enable nginx service"
+  service:
+    name: nginx
+    enabled: true
+
+- name: "Enable docker-registry service"
+  service:
+    name: docker-registry
+    enabled: true
+
+- name: "Start docker-registry service"
+  service:
+    name: docker-registry
+    state: started
+
+- name: "Tag images with location of local registry"
+  command: "/usr/bin/docker tag {{ image_name }} 127.0.0.1:5000/{{ image_name }}"
+  vars:
+    image_name: "{% if ':' in item.1  %}{{ item.1.split(':')[0] }}{% else %}{{ item.1 }}{% endif %}:{% if ':' in item.1 %}{{ item.1.split(':')[1] }}{% else %}{{ item.0.tag }}{% endif %}"
+  when: not item.0.push is defined or item.0.push    
+  with_subelements:
+    - "{{ config.registries }}"
+    - images
+
+- name: "Push images to local registry"
+  command: "/usr/bin/docker push 127.0.0.1:5000/{{ image_name }}"
+  vars:
+    image_name: "{% if ':' in item.1  %}{{ item.1.split(':')[0] }}{% else %}{{ item.1 }}{% endif %}:{% if ':' in item.1 %}{{ item.1.split(':')[1] }}{% else %}{{ item.0.tag }}{% endif %}"
+  when: not item.0.push is defined or item.0.push
+  with_subelements:
+    - "{{ config.registries }}"
+    - images
+
+- name: "Ensure nginx service is started (if it won't be restarted by the handler)"
+  service:
+    name: nginx
+    state: started
+  when: not nginx_service.changed
+
+- name: "Ensure http port is opened"
+  firewalld:
+    service: http
+    permanent: true
+    immediate: true
+    state: enabled
+
+- name: "Ensure docker registry port is opened"
+  firewalld:
+    port: 5000/tcp
+    permanent: true
+    immediate: true
+    state: enabled    
