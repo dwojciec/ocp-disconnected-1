@@ -16,8 +16,8 @@ RUN yum install -y \
 RUN mkdir -p /data && mkdir /exports
 WORKDIR /data
 RUN git clone https://github.com/dwojciec/ocp-disconnected-1.git
-WORKDIR /data/ocp-disconnected
 RUN mkdir -p /data/ocp-disconnected/build
 VOLUME /data/ocp-disconnected/build
 COPY conf.yml  /data/ocp-disconnected/conf.yml     
+WORKDIR /data/ocp-disconnected
 ENTRYPOINT ["/bin/bash","/usr/local/bin/entrypoint.sh"]]
