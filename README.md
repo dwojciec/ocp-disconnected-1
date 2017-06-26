@@ -37,7 +37,7 @@ Copy the conf.default.yml file to conf.yml. Edit the contents of conf.yml (if re
 To execute the installation run the ansible-playbook command. The output will be an an Archive that contains all of the materials required to install OCP on a target system.
 
 ```bash
-ansible-playbooks -i hosts build.yml
+ansible-playbook -i hosts build.yml
 ```
 
 The output will be a TAR archive in the build folder with the prefix "ocp-disconnected" and the version configured in the configuration file.
