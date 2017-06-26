@@ -5,19 +5,20 @@ This project follows the [Red Hat documentation](https://docs.openshift.com/cont
 
 ## Docker images to build the tar ball
 I created on my local machine a directory /exports on which I will have at the end the tar ball
-''' cd ocp-disconnected-1/docker
+```
+    cd ocp-disconnected-1/docker
     docker build -t rhel/ocp-disconnected .
     docker run -it --privileged -v /var/run/docker.sock:/var/run/docker.sock -v /exports:/data/ocp-disconnected/build rhel/ocp-disconnected
-'''
+```
 At the end the /export directory will contents all files (here it's just a simple test - the size of the file ocp-disconnected-3.5.tar.gz doesn't reflect the full size of a real tar ball ) :
-'''
+```
 [root@ip-172 exports]# ls -ltr
 total 1709664
 drwxr-xr-x. 3 root root         34 Jun 26 13:34 content
 -rw-r--r--. 1 root root        953 Jun 26 13:34 yum.conf
 -rw-r--r--. 1 root root 1750691840 Jun 26 13:36 ocp-disconnected-3.5.tar.gz
 [root@ip-172- exports]#
-'''
+```
 
 
 ## Prerequisites
