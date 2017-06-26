@@ -20,4 +20,4 @@ WORKDIR /data/ocp-disconnected
 RUN mkdir -p /data/ocp-disconnected/build
 VOLUME /data/ocp-disconnected/build
 COPY conf.yml  /data/ocp-disconnected/conf.yml     
-ENTRYPOINT ["/bin/bash"]
+ENTRYPOINT ["/bin/bash","/usr/local/bin/entrypoint.sh"]]

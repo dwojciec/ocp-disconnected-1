@@ -58,10 +58,10 @@
       name:
         - docker-py        
 
-  - name: "Ensure that Docker is running (so we can issue commands)"
-    service:
-      state: started
-      name: docker
+ # - name: "Ensure that Docker is running (so we can issue commands)"
+ #   service:
+ #     state: started
+ #     name: docker
 
   - name: "Ensure we hae a place to export docker tar images"
     file:
