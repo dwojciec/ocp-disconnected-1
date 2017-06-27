@@ -6,6 +6,7 @@ This project follows the [Red Hat documentation](https://docs.openshift.com/cont
 ## Docker images to build the tar ball
 I created on my local machine a directory /exports on which I will have at the end the tar ball
 ```
+    git clone https://github.com/dwojciec/ocp-disconnected-1.git
     cd ocp-disconnected-1/docker
     docker build -t rhel/ocp-disconnected .
     docker run -it --privileged -v /var/run/docker.sock:/var/run/docker.sock -v /exports:/data/ocp-disconnected/build rhel/ocp-disconnected
