@@ -1,0 +1,191 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: ocp-disconnected
+objects:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      app: ocp-disconnected
+    name: rhel
+  spec:
+    tags:
+    - from:
+        kind: DockerImage
+        name: registry.access.redhat.com/rhel7/rhel:latest
+      name: latest
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      app: ocp-disconnected
+    name: ocp-disconnected
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      app: ocp-disconnected
+      name: ocp-disconnected
+    name: ocp-disconnected
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ocp-disconnected:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      contextDir: docker
+      git:
+        uri: https://github.com/dwojciec/ocp-disconnected-1.git
+      type: Git
+    strategy:
+      dockerStrategy:
+        from:
+          kind: ImageStreamTag
+          name: rhel:latest
+        noCache: true
+      type: Docker
+    triggers:
+    - type: ConfigChange
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      app: ocp-disconnected
+      name: ocp-disconnected
+    name: ocp-disconnected
+  spec:
+    replicas: 1
+    selector:
+      app: ocp-disconnected
+      deploymentconfig: ocp-disconnected
+    strategy:
+      resources: {}
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 600
+        updatePeriodSeconds: 1
+      type: Rolling
+    template:
+      metadata:
+        annotations:
+          openshift.io/container.ocp-disconnected.image.entrypoint: '["/bin/bash"]'
+        labels:
+          app: ocp-disconnected
+          deploymentconfig: ocp-disconnected
+      spec:
+        containers:
+        - command:
+          - bash
+          - -c
+          - sleep 86400
+          image: ocp-disconnected:latest
+          imagePullPolicy: Always
+          name: ocp-disconnected
+          resources: {}
+          securityContext:
+             privileged: true
+          terminationMessagePath: /dev/termination-log
+          volumeMounts:
+          - mountPath: /var/run/docker.sock
+            name: docker-sock
+          - mountPath: /data/ocp-disconnected/build
+            name: build
+          - mountPath: /data/ocp-disconnected/conf.yaml
+            name: conf-run
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - hostPath:
+            path: /var/run/docker.sock
+          name: docker-sock
+        - name: build
+          persistentVolumeClaim:
+            claimName: exports
+        - configMap:
+            defaultMode: 420
+            name: conf-ansible
+          name: conf-run
+    test: false
+    triggers:
+    - type: ConfigChange
+    - imageChangeParams:
+        containerNames:
+        - ocp-disconnected
+        from:
+          kind: ImageStreamTag
+          name: ocp-disconnected:latest
+      type: ImageChange
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: conf-ansible
+    data:
+    conf.yml: |
+      ---
+      versions:
+        ocp: 3.5
+      system:
+        rpms:
+          - createrepo
+          - curl
+          - vim
+      rpm_repositories:
+        - rhel-7-server-rpms
+        - rhel-7-server-extras-rpms
+        - rhel-7-server-ose-3.5-rpms
+        - rhel-7-fast-datapath-rpms
+      registries:
+        # utility/handy images usually for
+        # use on the system that will be
+        # the bastion system for installing
+        - name: docker
+          url: docker.io
+          tag: latest
+          push: false
+          images:
+            - registry
+            - nginx
+        # openshift images that will be rehosted
+        # in the internal registry
+        - name: ose3-component-images
+          url: registry.access.redhat.com
+          tag: v3.5
+          images:
+          - openshift3/ose-haproxy-router
+          - openshift3/ose-deployer
+          - openshift3/ose-sti-builder
+          - openshift3/ose-docker-builder
+          - openshift3/ose-pod
+          - openshift3/ose-docker-registry
+          - openshift3/ose-haproxy-router
+          - openshift3/ose-deployer
+          - openshift3/ose-sti-builder
+          - openshift3/ose-docker-builder
+          - openshift3/ose-pod
+          - openshift3/ose-docker-registry
+          - openshift3/logging-deployer
+          - openshift3/logging-elasticsearch
+          - openshift3/logging-kibana
+          - openshift3/logging-fluentd
+          - openshift3/logging-curator
+          - openshift3/logging-auth-proxy
+          - openshift3/metrics-deployer
+          - openshift3/metrics-hawkular-metrics
+          - openshift3/metrics-cassandra
+          - openshift3/metrics-heapster
+          - openshift3/registry-console
+        # host, binary, and s2i images that will be rehosted in the
+        # internal registry
+        - name: ose3-hosted-images
+          url: registry.access.redhat.com
+          tag: latest
+          images: []
+  
