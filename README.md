@@ -4,7 +4,7 @@
 This project follows the [Red Hat documentation](https://docs.openshift.com/container-platform/3.5/install_config/install/disconnected_install.html) for creating a disconnected controller/repository to use in the installation of the OpenShift Container Platform.
 
 ## Docker images to build the tar ball
-I created on my local machine a directory /exports on which I will have at the end the tar ball
+I created on my local RHEL VM machine a directory /exports on which I will have at the end the tar ball
 ```
     git clone https://github.com/dwojciec/ocp-disconnected-1.git
     cd ocp-disconnected-1/docker
