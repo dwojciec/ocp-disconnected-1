@@ -3,7 +3,6 @@ MAINTAINER Didier Wojciechowski <dwojciec@redhat.com>
 
 LABEL io.k8s.display-name="Image for OCP disconnected" \
       io.k8s.description="Docker image to build all contents for OCP disconnected"
-ADD bin/*  /usr/local/bin/
 RUN yum install -y \
         --enablerepo=rhel-7-server-rpms \
         --enablerepo=rhel-7-server-extras-rpms \
@@ -15,9 +14,9 @@ RUN yum install -y \
         atomic-openshift-utils
 RUN mkdir -p /data && mkdir /exports
 WORKDIR /data
-RUN git clone https://github.com/dwojciec/ocp-disconnected-1.git
-RUN mkdir -p /data/ocp-disconnected/build
+RUN git clone https://github.com/dwojciec/ocp-disconnected-1.git &&  mv /data/ocp-disconnected-1 /data/ocp-disconnected && mkdir -p /data/ocp-disconnected/build
 VOLUME /data/ocp-disconnected/build
 COPY conf.yml  /data/ocp-disconnected/conf.yml     
+ADD bin/*  /usr/local/bin/
 WORKDIR /data/ocp-disconnected
-ENTRYPOINT ["/bin/bash","/usr/local/bin/entrypoint.sh"]]
+ENTRYPOINT ["/bin/bash","/usr/local/bin/entrypoint.sh"]
