@@ -96,7 +96,7 @@ objects:
             name: docker-sock
           - mountPath: /data/ocp-disconnected/build
             name: build
-          - mountPath: /data/ocp-disconnected/conf.yaml
+          - mountPath: /data/ocp-disconnected/conf
             name: conf-run
         dnsPolicy: ClusterFirst
         restartPolicy: Always
@@ -109,10 +109,10 @@ objects:
         - name: build
           persistentVolumeClaim:
             claimName: exports
-        - configMap:
+        - name: conf-run
+          configMap:
             defaultMode: 420
             name: conf-ansible
-          name: conf-run
     test: false
     triggers:
     - type: ConfigChange
@@ -128,7 +128,7 @@ objects:
   metadata:
     name: conf-ansible
     data:
-    conf.yml: |
+    conf.yml: |-
       ---
       versions:
         ocp: 3.5
