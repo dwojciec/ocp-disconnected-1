@@ -19,7 +19,7 @@
       name: "config"
     with_first_found:
       - "{{ playbook_dir }}/conf.{{ environment }}.yml"
-      - "{{ playbook_dir }}/conf.yml"
+      - "{{ playbook_dir }}/conf/conf.yml"
       - "{{ playbook_dir }}/conf.default.yml"
 
   - name: "Set shorthand variables for the rest of the installation"
