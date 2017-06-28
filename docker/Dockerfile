@@ -14,7 +14,7 @@ RUN yum install -y \
         atomic-openshift-utils
 RUN mkdir -p /data && mkdir /exports
 WORKDIR /data
-RUN git clone https://github.com/dwojciec/ocp-disconnected-1.git &&  mv /data/ocp-disconnected-1 /data/ocp-disconnected && mkdir -p /data/ocp-disconnected/build
+RUN git clone https://github.com/dwojciec/ocp-disconnected-1.git &&  mv /data/ocp-disconnected-1 /data/ocp-disconnected && mkdir -p /data/ocp-disconnected/build && mkdir -p /data/ocp-disconnected/conf
 VOLUME /data/ocp-disconnected/build
 COPY conf.yml  /data/ocp-disconnected/conf.yml     
 ADD bin/*  /usr/local/bin/
